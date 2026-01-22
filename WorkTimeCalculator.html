@@ -248,6 +248,12 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                         <div class="value" id="finalTime">0.00h</div>
                         <div class="subvalue" id="finalTimeHM"></div>
                     </div>
+                    <div class="summary-item" id="expectedLeaveCard"
+                        style="display: none; background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white;">
+                        <div class="label">Expected Leave Time</div>
+                        <div class="value" id="expectedLeave">--:--</div>
+                        <div class="subvalue" id="expectedLeaveNote"></div>
+                    </div>
                 </div>
 
                 <div class="info-box" id="infoBox"></div>
@@ -274,6 +280,7 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
 
     <script>
         const MIN_BREAK_HOURS = 0.5; // 30 minutes
+        const MIN_WORK_HOURS = 7.5; // Minimum required final work time
 
         function parseLogLine(line) {
             // Clean the line
@@ -325,25 +332,42 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                 }
             }
 
-            if (entries.length < 2) {
-                alert('Please provide at least one Entry and Exit pair.');
+            if (entries.length < 1) {
+                alert('Please provide at least one Entry.');
                 return;
             }
 
             // Sort by datetime
             entries.sort((a, b) => a.dateTime - b.dateTime);
 
+            // Check if currently at work (last entry is Entry, not Exit)
+            const lastEntry = entries[entries.length - 1];
+            const isCurrentlyAtWork = lastEntry.type === 'entry';
+            const currentTime = new Date();
+
+            // If currently at work, add a virtual "Exit" at current time for calculations
+            if (isCurrentlyAtWork) {
+                entries.push({
+                    type: 'exit',
+                    dateTime: currentTime,
+                    dateStr: currentTime.toISOString().split('T')[0],
+                    timeStr: formatTime(currentTime),
+                    isVirtual: true
+                });
+            }
+
             // Find overall work day start and end
             const firstEntry = entries.find(e => e.type === 'entry');
             const lastExit = [...entries].reverse().find(e => e.type === 'exit');
 
-            if (!firstEntry || !lastExit) {
-                alert('Could not determine work day start/end times.');
+            if (!firstEntry) {
+                alert('Could not determine work day start time.');
                 return;
             }
 
             const workDayStart = firstEntry.dateTime;
-            const workDayEnd = lastExit.dateTime;
+            // Use current time as workDayEnd if still at work, otherwise use last exit
+            const workDayEnd = isCurrentlyAtWork ? currentTime : (lastExit ? lastExit.dateTime : currentTime);
             const validBreakStart = new Date(workDayStart.getTime() + 2 * 60 * 60 * 1000); // 2h after start
             const validBreakEnd = new Date(workDayEnd.getTime() - 2 * 60 * 60 * 1000); // 2h before end
 
@@ -424,6 +448,28 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             document.getElementById('finalTime').textContent = finalWorkHours.toFixed(2) + 'h';
             document.getElementById('finalTimeHM').textContent = formatDuration(finalWorkHours);
 
+            // Calculate expected leave time if currently at work
+            const expectedLeaveCard = document.getElementById('expectedLeaveCard');
+            if (isCurrentlyAtWork) {
+                // Need to reach MIN_WORK_HOURS of final work time
+                // finalWorkHours = totalWorkHours - penalty
+                // We need: remainingWork = MIN_WORK_HOURS - finalWorkHours
+                const remainingWork = MIN_WORK_HOURS - finalWorkHours;
+
+                if (remainingWork > 0) {
+                    // Calculate expected leave time
+                    const expectedLeaveTime = new Date(currentTime.getTime() + remainingWork * 60 * 60 * 1000);
+                    document.getElementById('expectedLeave').textContent = formatTime(expectedLeaveTime).substring(0, 5);
+                    document.getElementById('expectedLeaveNote').textContent = `${remainingWork.toFixed(2)}h remaining (for ${MIN_WORK_HOURS}h day)`;
+                } else {
+                    document.getElementById('expectedLeave').textContent = 'Now! ✓';
+                    document.getElementById('expectedLeaveNote').textContent = `Already reached ${MIN_WORK_HOURS}h`;
+                }
+                expectedLeaveCard.style.display = 'block';
+            } else {
+                expectedLeaveCard.style.display = 'none';
+            }
+
             // Build info box
             let infoHtml = '';
             infoHtml += `<p>🕐 <strong>Valid break window:</strong> ${formatTime(validBreakStart)} - ${formatTime(validBreakEnd)} (not in first/last 2h of work)</p>`;
@@ -448,13 +494,16 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
 
             for (let s = 0; s < sessions.length; s++) {
                 const session = sessions[s];
+                const isOngoing = isCurrentlyAtWork && s === sessions.length - 1;
+                const endTimeDisplay = isOngoing ? `${formatTime(session.end)} (now)` : formatTime(session.end);
+                const statusText = isOngoing ? '⏳ In Progress' : '✓ Work';
                 tableHtml += `
                     <tr class="session-row">
                         <td><strong>Work Session ${s + 1}</strong></td>
                         <td>${formatTime(session.start)}</td>
-                        <td>${formatTime(session.end)}</td>
+                        <td>${endTimeDisplay}</td>
                         <td>${session.duration.toFixed(2)}h (${formatDuration(session.duration)})</td>
-                        <td class="status-ok">✓ Work</td>
+                        <td class="status-ok">${statusText}</td>
                     </tr>
                 `;
 
