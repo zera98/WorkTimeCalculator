@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Work Time Calculator</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .card h2 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            resize: vertical;
+            transition: border-color 0.3s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-clear {
+            background: #e74c3c;
+            margin-left: 10px;
+        }
+
+        .results {
+            display: none;
+        }
+
+        .results.show {
+            display: block;
+        }
+
+        .summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .summary-item {
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8ec 100%);
+            padding: 20px;
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .summary-item.highlight {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .summary-item .label {
+            font-size: 0.9em;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+
+        .summary-item .value {
+            font-size: 1.8em;
+            font-weight: bold;
+        }
+
+        .summary-item .subvalue {
+            font-size: 0.85em;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th,
+        td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #eee;
+        }
+
+        th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #333;
+        }
+
+        tr:hover {
+            background: #f5f7fa;
+        }
+
+        .session-row {
+            background: #e8f5e9;
+        }
+
+        .break-row {
+            background: #fff3e0;
+        }
+
+        .break-row.penalty {
+            background: #ffebee;
+        }
+
+        .status-ok {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
+        .status-penalty {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .info-box p {
+            margin: 5px 0;
+            font-size: 0.9em;
+            color: #1565c0;
+        }
+
+        .format-hint {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 10px;
+        }
+
+        .format-hint code {
+            background: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>⏱️ Work Time Calculator</h1>
+
+        <div class="card">
+            <h2>📋 Paste Your Logs</h2>
+            <textarea id="logInput" placeholder="Entry 	BL Cajavec GLAVNI ULAZ 	2026-01-12 07:01:49 	Processed 	OK
+Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 09:58:12 	Processed 	OK
+Entry 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:04:25 	Processed 	OK
+Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
+..."></textarea>
+            <div class="format-hint">
+                <strong>Expected format:</strong>
+                <code>Entry/Exit [Location] [YYYY-MM-DD HH:MM:SS] [Status] [Result]</code><br>
+                Tab or multiple spaces separated. Minimum required break: <strong>0.5 hours (30 minutes)</strong>
+            </div>
+            <button class="btn" onclick="calculateTime()">Calculate Time</button>
+            <button class="btn btn-clear" onclick="clearAll()">Clear</button>
+        </div>
+
+        <div class="results" id="results">
+            <div class="card">
+                <h2>📊 Summary</h2>
+                <div class="summary">
+                    <div class="summary-item">
+                        <div class="label">Total Work Time</div>
+                        <div class="value" id="totalTime">0.00h</div>
+                        <div class="subvalue" id="totalTimeHM"></div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="label">Total Break Time</div>
+                        <div class="value" id="totalBreak">0.00h</div>
+                        <div class="subvalue" id="totalBreakHM"></div>
+                    </div>
+                    <div class="summary-item">
+                        <div class="label">Break Penalty</div>
+                        <div class="value" id="breakPenalty">0.00h</div>
+                        <div class="subvalue" id="breakPenaltyHM"></div>
+                    </div>
+                    <div class="summary-item highlight">
+                        <div class="label">Final Work Time</div>
+                        <div class="value" id="finalTime">0.00h</div>
+                        <div class="subvalue" id="finalTimeHM"></div>
+                    </div>
+                </div>
+
+                <div class="info-box" id="infoBox"></div>
+            </div>
+
+            <div class="card">
+                <h2>📝 Detailed Breakdown</h2>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody id="detailsTable">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const MIN_BREAK_HOURS = 0.5; // 30 minutes
+
+        function parseLogLine(line) {
+            // Clean the line
+            line = line.trim();
+            if (!line) return null;
+
+            // Match Entry or Exit at the beginning
+            const typeMatch = line.match(/^(Entry|Exit)\s+/i);
+            if (!typeMatch) return null;
+
+            const type = typeMatch[1].toLowerCase();
+
+            // Find datetime pattern: YYYY-MM-DD HH:MM:SS
+            const dateTimeMatch = line.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}:\d{2}:\d{2})/);
+            if (!dateTimeMatch) return null;
+
+            const dateStr = dateTimeMatch[1];
+            const timeStr = dateTimeMatch[2];
+            const dateTime = new Date(`${dateStr}T${timeStr}`);
+
+            return {
+                type: type,
+                dateTime: dateTime,
+                dateStr: dateStr,
+                timeStr: timeStr
+            };
+        }
+
+        function formatDuration(hours) {
+            const h = Math.floor(hours);
+            const m = Math.round((hours - h) * 60);
+            return `${h}h ${m}m`;
+        }
+
+        function formatTime(date) {
+            return date.toTimeString().substring(0, 8);
+        }
+
+        function calculateTime() {
+            const input = document.getElementById('logInput').value;
+            const lines = input.split('\n');
+
+            const entries = [];
+
+            for (const line of lines) {
+                const parsed = parseLogLine(line);
+                if (parsed) {
+                    entries.push(parsed);
+                }
+            }
+
+            if (entries.length < 2) {
+                alert('Please provide at least one Entry and Exit pair.');
+                return;
+            }
+
+            // Sort by datetime
+            entries.sort((a, b) => a.dateTime - b.dateTime);
+
+            // Find overall work day start and end
+            const firstEntry = entries.find(e => e.type === 'entry');
+            const lastExit = [...entries].reverse().find(e => e.type === 'exit');
+
+            if (!firstEntry || !lastExit) {
+                alert('Could not determine work day start/end times.');
+                return;
+            }
+
+            const workDayStart = firstEntry.dateTime;
+            const workDayEnd = lastExit.dateTime;
+            const validBreakStart = new Date(workDayStart.getTime() + 2 * 60 * 60 * 1000); // 2h after start
+            const validBreakEnd = new Date(workDayEnd.getTime() - 2 * 60 * 60 * 1000); // 2h before end
+
+            // Calculate work sessions and breaks
+            const sessions = [];
+            const breaks = [];
+
+            let i = 0;
+            while (i < entries.length) {
+                // Find an Entry
+                if (entries[i].type === 'entry') {
+                    const entryTime = entries[i].dateTime;
+
+                    // Find the corresponding Exit
+                    if (i + 1 < entries.length && entries[i + 1].type === 'exit') {
+                        const exitTime = entries[i + 1].dateTime;
+                        const durationMs = exitTime - entryTime;
+                        const durationHours = durationMs / (1000 * 60 * 60);
+
+                        sessions.push({
+                            start: entryTime,
+                            end: exitTime,
+                            duration: durationHours
+                        });
+
+                        // Check if there's a break after this exit
+                        if (i + 2 < entries.length && entries[i + 2].type === 'entry') {
+                            const breakStart = exitTime;
+                            const breakEnd = entries[i + 2].dateTime;
+                            const breakDurationMs = breakEnd - breakStart;
+                            const breakDurationHours = breakDurationMs / (1000 * 60 * 60);
+
+                            // Check if break is in valid time window (not in first 2h or last 2h)
+                            const isValid = breakStart >= validBreakStart && breakEnd <= validBreakEnd;
+
+                            breaks.push({
+                                start: breakStart,
+                                end: breakEnd,
+                                duration: breakDurationHours,
+                                isValid: isValid
+                            });
+                        }
+
+                        i += 2;
+                    } else {
+                        i++;
+                    }
+                } else {
+                    i++;
+                }
+            }
+
+            // Calculate totals
+            const totalWorkHours = sessions.reduce((sum, s) => sum + s.duration, 0);
+            const totalBreakHours = breaks.reduce((sum, b) => sum + b.duration, 0);
+            // Only valid breaks count toward the minimum break requirement
+            const validBreakHours = breaks.filter(b => b.isValid).reduce((sum, b) => sum + b.duration, 0);
+            const invalidBreakHours = breaks.filter(b => !b.isValid).reduce((sum, b) => sum + b.duration, 0);
+
+            // Penalty is based on TOTAL VALID break time, not individual breaks
+            // If total valid break < 0.5h, penalty = 0.5h - total valid break
+            // Also apply penalty if there are NO breaks at all
+            const totalPenalty = (validBreakHours < MIN_BREAK_HOURS)
+                ? MIN_BREAK_HOURS - validBreakHours
+                : 0;
+            const finalWorkHours = totalWorkHours - totalPenalty;
+
+            // Update summary
+            document.getElementById('totalTime').textContent = totalWorkHours.toFixed(2) + 'h';
+            document.getElementById('totalTimeHM').textContent = formatDuration(totalWorkHours);
+
+            document.getElementById('totalBreak').textContent = totalBreakHours.toFixed(2) + 'h';
+            document.getElementById('totalBreakHM').textContent = formatDuration(totalBreakHours);
+
+            document.getElementById('breakPenalty').textContent = totalPenalty.toFixed(2) + 'h';
+            document.getElementById('breakPenaltyHM').textContent = formatDuration(totalPenalty);
+
+            document.getElementById('finalTime').textContent = finalWorkHours.toFixed(2) + 'h';
+            document.getElementById('finalTimeHM').textContent = formatDuration(finalWorkHours);
+
+            // Build info box
+            let infoHtml = '';
+            infoHtml += `<p>🕐 <strong>Valid break window:</strong> ${formatTime(validBreakStart)} - ${formatTime(validBreakEnd)} (not in first/last 2h of work)</p>`;
+            if (invalidBreakHours > 0) {
+                infoHtml += `<p>⚠️ <strong>Invalid breaks:</strong> ${invalidBreakHours.toFixed(2)}h of breaks were outside the valid window and don't count toward minimum.</p>`;
+            }
+            if (totalPenalty > 0 && breaks.length === 0) {
+                infoHtml += `<p>⚠️ <strong>Break penalty applied:</strong> No breaks were taken. Minimum break of ${MIN_BREAK_HOURS}h (30 min) is required.</p>`;
+                infoHtml += `<p>📐 <strong>Calculation:</strong> ${totalWorkHours.toFixed(2)}h (work) - ${totalPenalty.toFixed(2)}h (penalty for no break) = <strong>${finalWorkHours.toFixed(2)}h</strong></p>`;
+            } else if (totalPenalty > 0) {
+                infoHtml += `<p>⚠️ <strong>Break penalty applied:</strong> Your valid break time was ${validBreakHours.toFixed(2)}h, which is less than the minimum ${MIN_BREAK_HOURS}h (30 min).</p>`;
+                infoHtml += `<p>📐 <strong>Calculation:</strong> ${totalWorkHours.toFixed(2)}h (work) - ${totalPenalty.toFixed(2)}h (penalty for missing break time) = <strong>${finalWorkHours.toFixed(2)}h</strong></p>`;
+            } else if (breaks.length > 0) {
+                infoHtml += `<p>✅ Valid break time (${validBreakHours.toFixed(2)}h) meets or exceeds the minimum ${MIN_BREAK_HOURS}h (30 min) requirement. No penalty applied.</p>`;
+            }
+            document.getElementById('infoBox').innerHTML = infoHtml;
+
+            // Build details table
+            let tableHtml = '';
+            let sessionIndex = 0;
+            let breakIndex = 0;
+
+            for (let s = 0; s < sessions.length; s++) {
+                const session = sessions[s];
+                tableHtml += `
+                    <tr class="session-row">
+                        <td><strong>Work Session ${s + 1}</strong></td>
+                        <td>${formatTime(session.start)}</td>
+                        <td>${formatTime(session.end)}</td>
+                        <td>${session.duration.toFixed(2)}h (${formatDuration(session.duration)})</td>
+                        <td class="status-ok">✓ Work</td>
+                    </tr>
+                `;
+
+                // Add break after this session if exists
+                if (s < breaks.length) {
+                    const brk = breaks[s];
+                    const rowClass = brk.isValid ? 'break-row' : 'break-row penalty';
+                    const statusClass = brk.isValid ? 'status-ok' : 'status-penalty';
+                    const statusText = brk.isValid ? '✓ Valid Break' : '✗ Invalid (outside window)';
+
+                    tableHtml += `
+                        <tr class="${rowClass}">
+                            <td><em>Break ${s + 1}</em></td>
+                            <td>${formatTime(brk.start)}</td>
+                            <td>${formatTime(brk.end)}</td>
+                            <td>${brk.duration.toFixed(2)}h (${formatDuration(brk.duration)})</td>
+                            <td class="${statusClass}">${statusText}</td>
+                        </tr>
+                    `;
+                }
+            }
+
+            // Add total break summary row if there are breaks
+            if (breaks.length > 0) {
+                const penaltyClass = totalPenalty > 0 ? 'status-penalty' : 'status-ok';
+                const penaltyText = totalPenalty > 0
+                    ? `⚠️ Short by ${totalPenalty.toFixed(2)}h`
+                    : '✓ OK';
+                tableHtml += `
+                    <tr class="break-row" style="font-weight: bold;">
+                        <td><strong>Total Break</strong></td>
+                        <td colspan="2"></td>
+                        <td>${totalBreakHours.toFixed(2)}h (${formatDuration(totalBreakHours)})</td>
+                        <td></td>
+                    </tr>
+                `;
+                tableHtml += `
+                    <tr class="${totalPenalty > 0 ? 'break-row penalty' : 'break-row'}" style="font-weight: bold;">
+                        <td><strong>Valid Break</strong></td>
+                        <td colspan="2"></td>
+                        <td>${validBreakHours.toFixed(2)}h (${formatDuration(validBreakHours)})</td>
+                        <td class="${penaltyClass}">${penaltyText}</td>
+                    </tr>
+                `;
+            }
+
+            document.getElementById('detailsTable').innerHTML = tableHtml;
+
+            // Show results
+            document.getElementById('results').classList.add('show');
+        }
+
+        function clearAll() {
+            document.getElementById('logInput').value = '';
+            document.getElementById('results').classList.remove('show');
+        }
+    </script>
+</body>
+
+</html>
