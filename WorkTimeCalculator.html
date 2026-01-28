@@ -463,13 +463,33 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             // Show projected leave time without penalty if there is a penalty
             if (totalPenalty > 0 && isCurrentlyAtWork) {
                 const remainingWorkNoPenalty = MIN_WORK_HOURS - totalWorkHours;
+
+                // Calculate time until break becomes valid
+                // Break is invalid if it's in the last 2 hours of work
+                // So we need to find when the break will be outside the last 2h window
+                let breakValidInfo = '';
+                const invalidBreaks = breaks.filter(b => !b.isValid);
+                if (invalidBreaks.length > 0) {
+                    // Find the latest invalid break end time
+                    const latestInvalidBreak = invalidBreaks.reduce((latest, b) =>
+                        b.end > latest.end ? b : latest, invalidBreaks[0]);
+
+                    // Break becomes valid when current time is 2h after break end
+                    const breakValidTime = new Date(latestInvalidBreak.end.getTime() + 2 * 60 * 60 * 1000);
+                    const timeUntilBreakValid = (breakValidTime - currentTime) / (1000 * 60 * 60);
+
+                    if (timeUntilBreakValid > 0) {
+                        breakValidInfo = ` | Break valid in ${formatDuration(timeUntilBreakValid)}`;
+                    }
+                }
+
                 if (remainingWorkNoPenalty > 0) {
                     const expectedLeaveNoPenalty = new Date(currentTime.getTime() + remainingWorkNoPenalty * 60 * 60 * 1000);
                     document.getElementById('projectedTime').textContent = formatTime(expectedLeaveNoPenalty);
-                    document.getElementById('projectedTimeNote').textContent = `${formatDuration(remainingWorkNoPenalty)} remaining for ${MIN_WORK_HOURS}h`;
+                    document.getElementById('projectedTimeNote').textContent = `${formatDuration(remainingWorkNoPenalty)} remaining for ${MIN_WORK_HOURS}h${breakValidInfo}`;
                 } else {
                     document.getElementById('projectedTime').textContent = 'Now! ✓';
-                    document.getElementById('projectedTimeNote').textContent = `Already ${MIN_WORK_HOURS}h+ (no penalty)`;
+                    document.getElementById('projectedTimeNote').textContent = `Already ${MIN_WORK_HOURS}h+ (no penalty)${breakValidInfo}`;
                 }
                 projectedTimeCard.style.display = 'block';
             } else {
