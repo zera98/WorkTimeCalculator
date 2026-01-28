@@ -486,10 +486,10 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                 if (remainingWorkNoPenalty > 0) {
                     const expectedLeaveNoPenalty = new Date(currentTime.getTime() + remainingWorkNoPenalty * 60 * 60 * 1000);
                     document.getElementById('projectedTime').textContent = formatTime(expectedLeaveNoPenalty);
-                    document.getElementById('projectedTimeNote').textContent = `${formatDuration(remainingWorkNoPenalty)} remaining for ${MIN_WORK_HOURS}h${breakValidInfo}`;
+                    document.getElementById('projectedTimeNote').textContent = breakValidInfo ? breakValidInfo.substring(3) : ''; // Remove " | " prefix
                 } else {
                     document.getElementById('projectedTime').textContent = 'Now! ✓';
-                    document.getElementById('projectedTimeNote').textContent = `Already ${MIN_WORK_HOURS}h+ (no penalty)${breakValidInfo}`;
+                    document.getElementById('projectedTimeNote').textContent = breakValidInfo ? breakValidInfo.substring(3) : 'Break already valid';
                 }
                 projectedTimeCard.style.display = 'block';
             } else {
