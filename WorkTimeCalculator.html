@@ -254,6 +254,12 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                         <div class="value" id="expectedLeave">--:--</div>
                         <div class="subvalue" id="expectedLeaveNote"></div>
                     </div>
+                    <div class="summary-item" id="projectedTimeCard"
+                        style="display: none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
+                        <div class="label">Final Time (if break valid)</div>
+                        <div class="value" id="projectedTime">0.00h</div>
+                        <div class="subvalue" id="projectedTimeNote"></div>
+                    </div>
                 </div>
 
                 <div class="info-box" id="infoBox"></div>
@@ -333,7 +339,7 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             }
 
             if (entries.length < 1) {
-                alert('Please provide at least one Entry.');
+                document.getElementById('results').classList.remove('show');
                 return;
             }
 
@@ -361,7 +367,7 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             const lastExit = [...entries].reverse().find(e => e.type === 'exit');
 
             if (!firstEntry) {
-                alert('Could not determine work day start time.');
+                document.getElementById('results').classList.remove('show');
                 return;
             }
 
@@ -450,6 +456,19 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
 
             // Calculate expected leave time if currently at work
             const expectedLeaveCard = document.getElementById('expectedLeaveCard');
+            const projectedTimeCard = document.getElementById('projectedTimeCard');
+
+            // Show projected time without penalty if there is a penalty
+            if (totalPenalty > 0 && isCurrentlyAtWork) {
+                // This shows what the final time would be if they stay long enough for breaks to become valid
+                const projectedFinalTime = totalWorkHours; // No penalty applied
+                document.getElementById('projectedTime').textContent = projectedFinalTime.toFixed(2) + 'h';
+                document.getElementById('projectedTimeNote').textContent = formatDuration(projectedFinalTime) + ' (no penalty)';
+                projectedTimeCard.style.display = 'block';
+            } else {
+                projectedTimeCard.style.display = 'none';
+            }
+
             if (isCurrentlyAtWork) {
                 // Need to reach MIN_WORK_HOURS of final work time
                 // finalWorkHours = totalWorkHours - penalty
@@ -466,6 +485,19 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                     document.getElementById('expectedLeaveNote').textContent = `Already reached ${MIN_WORK_HOURS}h`;
                 }
                 expectedLeaveCard.style.display = 'block';
+
+                // If there's a penalty, also show expected leave time assuming break becomes valid
+                if (totalPenalty > 0) {
+                    const remainingWorkNoPenalty = MIN_WORK_HOURS - totalWorkHours;
+                    if (remainingWorkNoPenalty > 0) {
+                        const expectedLeaveNoPenalty = new Date(currentTime.getTime() + remainingWorkNoPenalty * 60 * 60 * 1000);
+                        document.getElementById('projectedTimeNote').textContent =
+                            `Leave at ${formatTime(expectedLeaveNoPenalty).substring(0, 5)} for ${MIN_WORK_HOURS}h (if break valid)`;
+                    } else {
+                        document.getElementById('projectedTimeNote').textContent =
+                            `Already ${MIN_WORK_HOURS}h+ (if break valid)`;
+                    }
+                }
             } else {
                 expectedLeaveCard.style.display = 'none';
             }
@@ -560,6 +592,33 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             document.getElementById('logInput').value = '';
             document.getElementById('results').classList.remove('show');
         }
+
+        // Live calculation with debouncing
+        let debounceTimer;
+        document.getElementById('logInput').addEventListener('input', function () {
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(calculateTime, 300);
+        });
+
+        // Auto-refresh every second when page is open (for live "now" updates)
+        let autoRefreshTimer;
+        function startAutoRefresh() {
+            autoRefreshTimer = setInterval(function () {
+                const input = document.getElementById('logInput').value.trim();
+                if (input) {
+                    calculateTime();
+                }
+            }, 1000); // Refresh every second
+        }
+        startAutoRefresh();
+
+        // Calculate on page load if there's content
+        document.addEventListener('DOMContentLoaded', function () {
+            const input = document.getElementById('logInput').value.trim();
+            if (input) {
+                calculateTime();
+            }
+        });
     </script>
 </body>
 
