@@ -256,8 +256,8 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                     </div>
                     <div class="summary-item" id="projectedTimeCard"
                         style="display: none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
-                        <div class="label">Final Time (if break valid)</div>
-                        <div class="value" id="projectedTime">0.00h</div>
+                        <div class="label">Leave Time (if break valid)</div>
+                        <div class="value" id="projectedTime">--:--:--</div>
                         <div class="subvalue" id="projectedTimeNote"></div>
                     </div>
                 </div>
@@ -317,8 +317,10 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
 
         function formatDuration(hours) {
             const h = Math.floor(hours);
-            const m = Math.round((hours - h) * 60);
-            return `${h}h ${m}m`;
+            const remainingMinutes = (hours - h) * 60;
+            const m = Math.floor(remainingMinutes);
+            const s = Math.round((remainingMinutes - m) * 60);
+            return `${h}h ${m}m ${s}s`;
         }
 
         function formatTime(date) {
@@ -458,12 +460,17 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             const expectedLeaveCard = document.getElementById('expectedLeaveCard');
             const projectedTimeCard = document.getElementById('projectedTimeCard');
 
-            // Show projected time without penalty if there is a penalty
+            // Show projected leave time without penalty if there is a penalty
             if (totalPenalty > 0 && isCurrentlyAtWork) {
-                // This shows what the final time would be if they stay long enough for breaks to become valid
-                const projectedFinalTime = totalWorkHours; // No penalty applied
-                document.getElementById('projectedTime').textContent = projectedFinalTime.toFixed(2) + 'h';
-                document.getElementById('projectedTimeNote').textContent = formatDuration(projectedFinalTime) + ' (no penalty)';
+                const remainingWorkNoPenalty = MIN_WORK_HOURS - totalWorkHours;
+                if (remainingWorkNoPenalty > 0) {
+                    const expectedLeaveNoPenalty = new Date(currentTime.getTime() + remainingWorkNoPenalty * 60 * 60 * 1000);
+                    document.getElementById('projectedTime').textContent = formatTime(expectedLeaveNoPenalty);
+                    document.getElementById('projectedTimeNote').textContent = `${formatDuration(remainingWorkNoPenalty)} remaining for ${MIN_WORK_HOURS}h`;
+                } else {
+                    document.getElementById('projectedTime').textContent = 'Now! ✓';
+                    document.getElementById('projectedTimeNote').textContent = `Already ${MIN_WORK_HOURS}h+ (no penalty)`;
+                }
                 projectedTimeCard.style.display = 'block';
             } else {
                 projectedTimeCard.style.display = 'none';
@@ -478,26 +485,13 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                 if (remainingWork > 0) {
                     // Calculate expected leave time
                     const expectedLeaveTime = new Date(currentTime.getTime() + remainingWork * 60 * 60 * 1000);
-                    document.getElementById('expectedLeave').textContent = formatTime(expectedLeaveTime).substring(0, 5);
-                    document.getElementById('expectedLeaveNote').textContent = `${remainingWork.toFixed(2)}h remaining (for ${MIN_WORK_HOURS}h day)`;
+                    document.getElementById('expectedLeave').textContent = formatTime(expectedLeaveTime);
+                    document.getElementById('expectedLeaveNote').textContent = `${formatDuration(remainingWork)} remaining for ${MIN_WORK_HOURS}h`;
                 } else {
                     document.getElementById('expectedLeave').textContent = 'Now! ✓';
                     document.getElementById('expectedLeaveNote').textContent = `Already reached ${MIN_WORK_HOURS}h`;
                 }
                 expectedLeaveCard.style.display = 'block';
-
-                // If there's a penalty, also show expected leave time assuming break becomes valid
-                if (totalPenalty > 0) {
-                    const remainingWorkNoPenalty = MIN_WORK_HOURS - totalWorkHours;
-                    if (remainingWorkNoPenalty > 0) {
-                        const expectedLeaveNoPenalty = new Date(currentTime.getTime() + remainingWorkNoPenalty * 60 * 60 * 1000);
-                        document.getElementById('projectedTimeNote').textContent =
-                            `Leave at ${formatTime(expectedLeaveNoPenalty).substring(0, 5)} for ${MIN_WORK_HOURS}h (if break valid)`;
-                    } else {
-                        document.getElementById('projectedTimeNote').textContent =
-                            `Already ${MIN_WORK_HOURS}h+ (if break valid)`;
-                    }
-                }
             } else {
                 expectedLeaveCard.style.display = 'none';
             }
