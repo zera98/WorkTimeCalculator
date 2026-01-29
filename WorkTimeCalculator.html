@@ -454,8 +454,9 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             const expectedLeaveCard = document.getElementById('expectedLeaveCard');
             const projectedTimeCard = document.getElementById('projectedTimeCard');
 
-            // Show projected leave time without penalty if there is a penalty
-            if (totalPenalty > 0 && isCurrentlyAtWork) {
+            // Show projected leave time without penalty if there is a penalty AND there is at least one break
+            // (If no break at all, no point showing "if break valid" since they need to take a break first)
+            if (totalPenalty > 0 && isCurrentlyAtWork && breaks.length > 0) {
                 const remainingWorkNoPenalty = MIN_WORK_HOURS - totalWorkHours;
 
                 if (remainingWorkNoPenalty > 0) {
