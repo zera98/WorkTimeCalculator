@@ -220,7 +220,6 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                 <code>Entry/Exit [Location] [YYYY-MM-DD HH:MM:SS] [Status] [Result]</code><br>
                 Tab or multiple spaces separated. Minimum required break: <strong>0.5 hours (30 minutes)</strong>
             </div>
-            <button class="btn" onclick="calculateTime()">Calculate Time</button>
             <button class="btn btn-clear" onclick="clearAll()">Clear</button>
         </div>
 
@@ -253,12 +252,6 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                         <div class="label">Expected Leave Time</div>
                         <div class="value" id="expectedLeave">--:--</div>
                         <div class="subvalue" id="expectedLeaveNote"></div>
-                    </div>
-                    <div class="summary-item" id="projectedTimeCard"
-                        style="display: none; background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white;">
-                        <div class="label">If break valid leave at</div>
-                        <div class="value" id="projectedTime">--:--:--</div>
-                        <div class="subvalue" id="projectedTimeNote"></div>
                     </div>
                 </div>
 
@@ -452,25 +445,6 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
 
             // Calculate expected leave time if currently at work
             const expectedLeaveCard = document.getElementById('expectedLeaveCard');
-            const projectedTimeCard = document.getElementById('projectedTimeCard');
-
-            // Show projected leave time without penalty if there is a penalty AND there is at least one break
-            // (If no break at all, no point showing "if break valid" since they need to take a break first)
-            if (totalPenalty > 0 && isCurrentlyAtWork && breaks.length > 0) {
-                const remainingWorkNoPenalty = MIN_WORK_HOURS - totalWorkHours;
-
-                if (remainingWorkNoPenalty > 0) {
-                    const expectedLeaveNoPenalty = new Date(currentTime.getTime() + remainingWorkNoPenalty * 60 * 60 * 1000);
-                    document.getElementById('projectedTime').textContent = formatTime(expectedLeaveNoPenalty);
-                    document.getElementById('projectedTimeNote').textContent = `If break >= ${MIN_BREAK_HOURS}h`;
-                } else {
-                    document.getElementById('projectedTime').textContent = 'Now! ✓';
-                    document.getElementById('projectedTimeNote').textContent = `Already ${MIN_WORK_HOURS}h+ (no penalty)`;
-                }
-                projectedTimeCard.style.display = 'block';
-            } else {
-                projectedTimeCard.style.display = 'none';
-            }
 
             if (isCurrentlyAtWork) {
                 // Need to reach MIN_WORK_HOURS of final work time
