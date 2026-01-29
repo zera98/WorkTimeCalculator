@@ -293,6 +293,9 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             line = line.trim();
             if (!line) return null;
 
+            // Skip lines marked as Invalid
+            if (/\bInvalid\b/i.test(line)) return null;
+
             // Match Entry or Exit at the beginning
             const typeMatch = line.match(/^(Entry|Exit)\s+/i);
             if (!typeMatch) return null;
@@ -376,8 +379,6 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             const workDayStart = firstEntry.dateTime;
             // Use current time as workDayEnd if still at work, otherwise use last exit
             const workDayEnd = isCurrentlyAtWork ? currentTime : (lastExit ? lastExit.dateTime : currentTime);
-            const validBreakStart = new Date(workDayStart.getTime() + 2 * 60 * 60 * 1000); // 2h after start
-            const validBreakEnd = new Date(workDayEnd.getTime() - 2 * 60 * 60 * 1000); // 2h before end
 
             // Calculate work sessions and breaks
             const sessions = [];
@@ -408,14 +409,10 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                             const breakDurationMs = breakEnd - breakStart;
                             const breakDurationHours = breakDurationMs / (1000 * 60 * 60);
 
-                            // Check if break is in valid time window (not in first 2h or last 2h)
-                            const isValid = breakStart >= validBreakStart && breakEnd <= validBreakEnd;
-
                             breaks.push({
                                 start: breakStart,
                                 end: breakEnd,
-                                duration: breakDurationHours,
-                                isValid: isValid
+                                duration: breakDurationHours
                             });
                         }
 
@@ -431,15 +428,12 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             // Calculate totals
             const totalWorkHours = sessions.reduce((sum, s) => sum + s.duration, 0);
             const totalBreakHours = breaks.reduce((sum, b) => sum + b.duration, 0);
-            // Only valid breaks count toward the minimum break requirement
-            const validBreakHours = breaks.filter(b => b.isValid).reduce((sum, b) => sum + b.duration, 0);
-            const invalidBreakHours = breaks.filter(b => !b.isValid).reduce((sum, b) => sum + b.duration, 0);
 
-            // Penalty is based on TOTAL VALID break time, not individual breaks
-            // If total valid break < 0.5h, penalty = 0.5h - total valid break
+            // Penalty is based on TOTAL break time
+            // If total break < 0.5h, penalty = 0.5h - total break
             // Also apply penalty if there are NO breaks at all
-            const totalPenalty = (validBreakHours < MIN_BREAK_HOURS)
-                ? MIN_BREAK_HOURS - validBreakHours
+            const totalPenalty = (totalBreakHours < MIN_BREAK_HOURS)
+                ? MIN_BREAK_HOURS - totalBreakHours
                 : 0;
             const finalWorkHours = totalWorkHours - totalPenalty;
 
@@ -464,32 +458,13 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
             if (totalPenalty > 0 && isCurrentlyAtWork) {
                 const remainingWorkNoPenalty = MIN_WORK_HOURS - totalWorkHours;
 
-                // Calculate time until break becomes valid
-                // Break is invalid if it's in the last 2 hours of work
-                // So we need to find when the break will be outside the last 2h window
-                let breakValidInfo = '';
-                const invalidBreaks = breaks.filter(b => !b.isValid);
-                if (invalidBreaks.length > 0) {
-                    // Find the latest invalid break end time
-                    const latestInvalidBreak = invalidBreaks.reduce((latest, b) =>
-                        b.end > latest.end ? b : latest, invalidBreaks[0]);
-
-                    // Break becomes valid when current time is 2h after break end
-                    const breakValidTime = new Date(latestInvalidBreak.end.getTime() + 2 * 60 * 60 * 1000);
-                    const timeUntilBreakValid = (breakValidTime - currentTime) / (1000 * 60 * 60);
-
-                    if (timeUntilBreakValid > 0) {
-                        breakValidInfo = ` | Break valid in ${formatDuration(timeUntilBreakValid)}`;
-                    }
-                }
-
                 if (remainingWorkNoPenalty > 0) {
                     const expectedLeaveNoPenalty = new Date(currentTime.getTime() + remainingWorkNoPenalty * 60 * 60 * 1000);
                     document.getElementById('projectedTime').textContent = formatTime(expectedLeaveNoPenalty);
-                    document.getElementById('projectedTimeNote').textContent = breakValidInfo ? breakValidInfo.substring(3) : ''; // Remove " | " prefix
+                    document.getElementById('projectedTimeNote').textContent = `If break >= ${MIN_BREAK_HOURS}h`;
                 } else {
                     document.getElementById('projectedTime').textContent = 'Now! ✓';
-                    document.getElementById('projectedTimeNote').textContent = breakValidInfo ? breakValidInfo.substring(3) : 'Break already valid';
+                    document.getElementById('projectedTimeNote').textContent = `Already ${MIN_WORK_HOURS}h+ (no penalty)`;
                 }
                 projectedTimeCard.style.display = 'block';
             } else {
@@ -518,18 +493,14 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
 
             // Build info box
             let infoHtml = '';
-            infoHtml += `<p>🕐 <strong>Valid break window:</strong> ${formatTime(validBreakStart)} - ${formatTime(validBreakEnd)} (not in first/last 2h of work)</p>`;
-            if (invalidBreakHours > 0) {
-                infoHtml += `<p>⚠️ <strong>Invalid breaks:</strong> ${invalidBreakHours.toFixed(2)}h of breaks were outside the valid window and don't count toward minimum.</p>`;
-            }
             if (totalPenalty > 0 && breaks.length === 0) {
                 infoHtml += `<p>⚠️ <strong>Break penalty applied:</strong> No breaks were taken. Minimum break of ${MIN_BREAK_HOURS}h (30 min) is required.</p>`;
                 infoHtml += `<p>📐 <strong>Calculation:</strong> ${totalWorkHours.toFixed(2)}h (work) - ${totalPenalty.toFixed(2)}h (penalty for no break) = <strong>${finalWorkHours.toFixed(2)}h</strong></p>`;
             } else if (totalPenalty > 0) {
-                infoHtml += `<p>⚠️ <strong>Break penalty applied:</strong> Your valid break time was ${validBreakHours.toFixed(2)}h, which is less than the minimum ${MIN_BREAK_HOURS}h (30 min).</p>`;
+                infoHtml += `<p>⚠️ <strong>Break penalty applied:</strong> Your break time was ${totalBreakHours.toFixed(2)}h, which is less than the minimum ${MIN_BREAK_HOURS}h (30 min).</p>`;
                 infoHtml += `<p>📐 <strong>Calculation:</strong> ${totalWorkHours.toFixed(2)}h (work) - ${totalPenalty.toFixed(2)}h (penalty for missing break time) = <strong>${finalWorkHours.toFixed(2)}h</strong></p>`;
             } else if (breaks.length > 0) {
-                infoHtml += `<p>✅ Valid break time (${validBreakHours.toFixed(2)}h) meets or exceeds the minimum ${MIN_BREAK_HOURS}h (30 min) requirement. No penalty applied.</p>`;
+                infoHtml += `<p>✅ Break time (${totalBreakHours.toFixed(2)}h) meets or exceeds the minimum ${MIN_BREAK_HOURS}h (30 min) requirement. No penalty applied.</p>`;
             }
             document.getElementById('infoBox').innerHTML = infoHtml;
 
@@ -556,17 +527,14 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                 // Add break after this session if exists
                 if (s < breaks.length) {
                     const brk = breaks[s];
-                    const rowClass = brk.isValid ? 'break-row' : 'break-row penalty';
-                    const statusClass = brk.isValid ? 'status-ok' : 'status-penalty';
-                    const statusText = brk.isValid ? '✓ Valid Break' : '✗ Invalid (outside window)';
 
                     tableHtml += `
-                        <tr class="${rowClass}">
+                        <tr class="break-row">
                             <td><em>Break ${s + 1}</em></td>
                             <td>${formatTime(brk.start)}</td>
                             <td>${formatTime(brk.end)}</td>
                             <td>${brk.duration.toFixed(2)}h (${formatDuration(brk.duration)})</td>
-                            <td class="${statusClass}">${statusText}</td>
+                            <td class="status-ok">✓ Break</td>
                         </tr>
                     `;
                 }
@@ -579,18 +547,10 @@ Exit 	BL Cajavec GLAVNI ULAZ 	2026-01-12 10:36:12 	Processed 	OK
                     ? `⚠️ Short by ${totalPenalty.toFixed(2)}h`
                     : '✓ OK';
                 tableHtml += `
-                    <tr class="break-row" style="font-weight: bold;">
+                    <tr class="${totalPenalty > 0 ? 'break-row penalty' : 'break-row'}" style="font-weight: bold;">
                         <td><strong>Total Break</strong></td>
                         <td colspan="2"></td>
                         <td>${totalBreakHours.toFixed(2)}h (${formatDuration(totalBreakHours)})</td>
-                        <td></td>
-                    </tr>
-                `;
-                tableHtml += `
-                    <tr class="${totalPenalty > 0 ? 'break-row penalty' : 'break-row'}" style="font-weight: bold;">
-                        <td><strong>Valid Break</strong></td>
-                        <td colspan="2"></td>
-                        <td>${validBreakHours.toFixed(2)}h (${formatDuration(validBreakHours)})</td>
                         <td class="${penaltyClass}">${penaltyText}</td>
                     </tr>
                 `;
